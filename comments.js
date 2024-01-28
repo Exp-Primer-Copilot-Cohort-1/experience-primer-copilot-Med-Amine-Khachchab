@@ -1,44 +1,56 @@
 // Create a web server
-
-// 1. Handle GET requests for /comments
-// 2. Handle POST requests for /comments
-// 3. Handle DELETE requests for /comments/:id
-
 var express = require('express');
-var bodyParser = require('body-parser');
-var app = express();
-var _ = require('lodash');
+var router = express.Router();
 
-app.use(express.static('public'));
-app.use(bodyParser.json());
+// Load the MySQL pool connection
+const pool = require('../../data/config');
 
-var comments = [
-  { id: 1, author: 'Morgan', text: 'I am the first comment' },
-  { id: 2, author: 'Brett', text: 'This is a comment' }
-];
+// Route the app
+router.get('/', (request, response) => {
+    pool.query('SELECT * FROM comments', (error, result) => {
+        if (error) throw error;
 
-// GET /comments
-app.get('/comments', function(req, res) {
-  res.json(comments);
+        response.send(result);
+    });
 });
 
-// POST /comments
-app.post('/comments', function(req, res) {
-  var newComment = req.body;
-  newComment.id = _.uniqueId();
-  comments.push(newComment);
-  res.json(newComment);
+router.get('/:id', (request, response) => {
+    const id = request.params.id;
+
+    pool.query('SELECT * FROM comments WHERE id = ?', id, (error, result) => {
+        if (error) throw error;
+
+        response.send(result);
+    });
 });
 
-// DELETE /comments/:id
-app.delete('/comments/:id', function(req, res) {
-  var id = parseInt(req.params.id);
-  var comment = _.find(comments, { id: id });
-  _.remove(comments, { id: id });
-  res.json(comment);
+router.post('/', (request, response) => {
+    pool.query('INSERT INTO comments SET ?', request.body, (error, result) => {
+        if (error) throw error;
+
+        response.status(201).send(`User added with ID: ${result.insertId}`);
+    });
 });
 
-app.listen(3000, function() {
-  console.log('Server started on port 3000');
+router.put('/:id', (request, response) => {
+    const id = request.params.id;
+
+    pool.query('UPDATE comments SET ? WHERE id = ?', [request.body, id], (error, result) => {
+        if (error) throw error;
+
+        response.send('User updated successfully.');
+    });
 });
 
+router.delete('/:id', (request, response) => {
+    const id = request.params.id;
+
+    pool.query('DELETE FROM comments WHERE id = ?', id, (error, result) => {
+        if (error) throw error;
+
+        response.send('User deleted.');
+    });
+});
+
+// Export the router
+module.exports = router;
