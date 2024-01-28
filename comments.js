@@ -1,56 +1,68 @@
-// Create a web server
-var express = require('express');
-var router = express.Router();
+// Create web server
+const express = require('express');
+const bodyParser = require('body-parser');
+const app = express();
+const port = 3000;
+const fs = require('fs');
+const path = require('path');
+const commentsPath = path.join(__dirname, 'comments.json');
+const comments = require('./comments.json');
 
-// Load the MySQL pool connection
-const pool = require('../../data/config');
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Route the app
-router.get('/', (request, response) => {
-    pool.query('SELECT * FROM comments', (error, result) => {
-        if (error) throw error;
-
-        response.send(result);
-    });
+// GET
+app.get('/comments', (req, res) => {
+  res.json(comments);
 });
 
-router.get('/:id', (request, response) => {
-    const id = request.params.id;
-
-    pool.query('SELECT * FROM comments WHERE id = ?', id, (error, result) => {
-        if (error) throw error;
-
-        response.send(result);
-    });
+// POST
+app.post('/comments', (req, res) => {
+  let comment = req.body;
+  comment.id = comments.length + 1;
+  comments.push(comment);
+  fs.writeFile(commentsPath, JSON.stringify(comments), (err) => {
+    if (err) {
+      console.error(err);
+    }
+    res.json(comments);
+  });
 });
 
-router.post('/', (request, response) => {
-    pool.query('INSERT INTO comments SET ?', request.body, (error, result) => {
-        if (error) throw error;
-
-        response.status(201).send(`User added with ID: ${result.insertId}`);
-    });
+// PUT
+app.put('/comments/:id', (req, res) => {
+  let comment = req.body;
+  let id = req.params.id;
+  comment.id = id;
+  for (let i = 0; i < comments.length; i++) {
+    if (comments[i].id == id) {
+      comments[i] = comment;
+    }
+  }
+  fs.writeFile(commentsPath, JSON.stringify(comments), (err) => {
+    if (err) {
+      console.error(err);
+    }
+    res.json(comments);
+  });
 });
 
-router.put('/:id', (request, response) => {
-    const id = request.params.id;
-
-    pool.query('UPDATE comments SET ? WHERE id = ?', [request.body, id], (error, result) => {
-        if (error) throw error;
-
-        response.send('User updated successfully.');
-    });
+// DELETE
+app.delete('/comments/:id', (req, res) => {
+  let id = req.params.id;
+  for (let i = 0; i < comments.length; i++) {
+    if (comments[i].id == id) {
+      comments.splice(i, 1);
+    }
+  }
+  fs.writeFile(commentsPath, JSON.stringify(comments), (err) => {
+    if (err) {
+      console.error(err);
+    }
+    res.json(comments);
+  });
 });
 
-router.delete('/:id', (request, response) => {
-    const id = request.params.id;
-
-    pool.query('DELETE FROM comments WHERE id = ?', id, (error, result) => {
-        if (error) throw error;
-
-        response.send('User deleted.');
-    });
+app.listen(port, () => {
+  console.log(`Server is listening on port ${port}`);
 });
-
-// Export the router
-module.exports = router;
